@@ -5,6 +5,18 @@ __all__ = ['miaopai_download']
 from ..common import *
 import urllib.error
 
+
+def process_simple_m3u_to_file_list(url = ''):
+    """str->list of str
+    
+    Hopefullt this could be merged in common later on
+    if it works.
+    """
+    from urllib.parse import urlsplit
+    base_url = "{0.scheme}://{0.netloc}/".format(urlsplit(url))
+    m3u = get_content(url)
+    return [base_url + i for i in m3u.split() if not i.startswith('#')]
+
 def miaopai_download_by_fid(fid, output_dir = '.', merge = False, info_only = False, **kwargs):
     '''Source: Android mobile'''
     fake_headers_mobile = {
@@ -17,12 +29,25 @@ def miaopai_download_by_fid(fid, output_dir = '.', merge = False, info_only = Fa
     page_url = 'http://video.weibo.com/show?fid=' + fid + '&type=mp4'
 
     mobile_page = get_content(page_url, headers=fake_headers_mobile)
-    url = match1(mobile_page, r'<video id=.*?src=[\'"](.*?)[\'"]\W')
     title = match1(mobile_page, r'<title>([^<]+)</title>')
-    type_, ext, size = url_info(url)
-    print_info(site_info, title, type_, size)
+    
+    url = match1(mobile_page, r'<video id=.*?src=[\'"](.*?)[\'"]\W')
+
+    if '.m3u8' in url:
+        url_list = process_simple_m3u_to_file_list(url)
+        size_total = 0
+        for i in url_list:
+            type_, ext, size = url_info(i)
+            size_total += size
+        print_info(site_info, title, 'mp4', size)
+
+    else: 
+        type_, ext, size = url_info(url)
+        print_info(site_info, title, type_, size)
+        url_list = [url]
+
     if not info_only:
-        download_urls([url], title.replace('\n',''), ext, total_size=None, output_dir=output_dir, merge=merge)
+        download_urls(url_list, title.replace('\n',''), 'mp4', total_size=None, output_dir=output_dir, merge=merge)
 
 #----------------------------------------------------------------------
 def miaopai_download(url, output_dir = '.', merge = False, info_only = False, **kwargs):
